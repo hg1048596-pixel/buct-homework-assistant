@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set page = 'logs' %}
+{% block title %}日志 · 北化作业助手{% endblock %}
+{% block body %}
+<div class="panel">
+  <div class="panel-h"><span>logs/app.log</span><span class="spacer"></span>
+    <button id="btn-reload">刷新</button>
+  </div>
+  <div class="logs" id="logbox">读取中…</div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+async function loadLogs() {
+  const r = await fetch('/api/logs?tail=400');
+  const j = await r.json();
+  const box = document.getElementById('logbox');
+  box.textContent = j.lines.length ? j.lines.join('\n') : '(空)';
+  box.scrollTop = box.scrollHeight;
+}
+document.getElementById('btn-reload').onclick = loadLogs;
+loadLogs();
+</script>
+{% endblock %}

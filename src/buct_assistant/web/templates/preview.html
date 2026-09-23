@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% set page = 'preview' %}
+{% block title %}提交预演 · 北化作业助手{% endblock %}
+{% block body %}
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-h"><a href="/dashboard">← 返回总览</a><span class="spacer"></span>
+    <span class="meta" id="hdr"></span></div>
+</div>
+
+<div id="app"><div class="empty">正在生成预演…</div></div>
+{% endblock %}
+{% block script %}
+<script>
+const TOKEN = {{ token|tojson }};
+const box = document.getElementById('app');
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function load(){
+  const r = await fetch('/api/preview/' + encodeURIComponent(TOKEN));
+  const d = await r.json();
+  if(!d.ok){ box.innerHTML = '<div class="panel"><div class="pad err">'+esc(d.err)+'</div></div>'; return; }
+  document.getElementById('hdr').textContent = d.course + ' / ' + d.title;
+  const f = d.payload.fields;
+  box.innerHTML = `
+  <div class="detail">
+    <div>
+      <div class="panel">
+        <div class="panel-h"><span>将要发送的请求（逐字预览，这是唯一依据）</span></div>
+        <div class="pad">
+          <div class="kv" style="padding:0 0 10px">
+            <div class="k">目标</div><div class="v mono">${esc(d.payload.method)} ${esc(d.payload.url)}</div>
+            <div class="k">编码</div><div class="v">${esc(d.payload.content_type)}</div>
+            <div class="k">hwtid</div><div class="v mono">${esc(f.hwtid)}</div>
+            <div class="k">hwaid</div><div class="v mono">${esc(f.hwaid)}</div>
+          </div>
+          <label class="f">IPT_BODY（实际提交的正文 HTML）</label>
+          <pre class="logs" style="max-height:240px;border:1px solid var(--separator)">${esc(f.IPT_BODY)}</pre>
+          ${d.attachment ? `
+          <label class="f">附件</label>
+          <div class="kv" style="padding:0">
+            <div class="k">原文件名</div><div class="v">${esc(d.attachment.original_name)}</div>
+            <div class="k">将提交为</div><div class="v" style="color:var(--brand)">${esc(d.attachment.final_name)}</div>
+            <div class="k">大小</div><div class="v mono">${d.attachment.size} B</div>
+            <div class="k">流程</div><div class="v">${esc(d.attachment.note)}</div>
+          </div>` : ''}
+          ${d.gbk_lossy && d.gbk_lossy.length ? `
+          <div class="warnbox" style="margin-top:12px">⚠ 以下字符无法用 GBK 表示，提交时会被替换成 “?”：
+            ${d.gbk_lossy.map(c=>'<span class="mono">U+'+c.codePointAt(0).toString(16).toUpperCase()+'</span>').join(' ')}
+          </div>` : ''}
+          ${d.requirement ? `
+          <label class="f">该作业的要求（供你核对内容是否对得上）</label>
+          <div class="content" style="border:1px solid var(--separator);max-height:160px;overflow:auto">${esc(d.requirement)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel sticky">
+      <div class="panel-h"><span>确认提交</span></div>
+      <div class="pad">
+        <div class="hint">这一步之后就会真的写进学校平台。请核对左侧内容无误后，
+          在下面输入作业标题的前 ${d.confirm_chars} 个字：</div>
+        <div class="mono" style="margin:10px 0;font-size:15px;color:var(--brand)">${esc(d.confirm_phrase)}</div>
+        <label class="f">在此输入以解锁</label>
+        <input type="text" id="typed" autocomplete="off" spellcheck="false">
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="danger" id="btn-confirm">确认提交</button>
+          <button id="btn-cancel">取消</button>
+        </div>
+        <div class="hint" style="margin-top:8px">令牌 ${esc(d.expires_at).slice(0,16).replace('T',' ')} 过期，且只能用一次。</div>
+        <div id="out" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('btn-confirm').onclick = async () => {
+    const out = document.getElementById('out');
+    const typed = document.getElementById('typed').value;
+    if(!confirm('确认要提交这份内容到学校平台吗？提交后本工具不会自动重试。')) return;
+    out.className=''; out.textContent='提交中…';
+    const r2 = await fetch('/api/submit/confirm', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({csrf: window.CSRF, token: TOKEN, typed})});
+    const j = await r2.json();
+    out.className = j.ok ? 'ok' : 'err';
+    out.textContent = (j.ok ? '✓ ' : '✗ ') + (j.message || j.err || '');
+    if(j.state) out.textContent += '（状态：' + j.state + '）';
+  };
+  document.getElementById('btn-cancel').onclick = async () => {
+    await fetch('/api/submit/cancel', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({csrf: window.CSRF, token: TOKEN})});
+    location.href = '/dashboard';
+  };
+}
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% set page = 'dashboard' %}
+{% block title %}作业总览 · 北化作业助手{% endblock %}
+{% block body %}
+
+{% if deg %}
+<div class="warnbox">渠道发送连续失败：{{ deg|join('、') }} —— 请检查设置。</div>
+{% endif %}
+
+<div class="readouts">
+  <div class="readout hot">
+    <div class="k">未提交</div>
+    <div class="v" id="s-unsub">—</div>
+  </div>
+  <div class="readout">
+    <div class="k">24 小时内</div>
+    <div class="v" id="s-24">—</div>
+  </div>
+  <div class="readout">
+    <div class="k">6 小时内</div>
+    <div class="v" id="s-6">—</div>
+  </div>
+  <div class="readout bad">
+    <div class="k">已逾期</div>
+    <div class="v" id="s-over">—</div>
+  </div>
+  <div class="readout good">
+    <div class="k">已提交</div>
+    <div class="v" id="s-done">—</div>
+  </div>
+  <div class="readout">
+    <div class="k">在册记录</div>
+    <div class="v" id="s-total">—</div>
+  </div>
+</div>
+
+<div class="dist" id="dist"></div>
+
+<div class="grid">
+  <section class="panel">
+    <div class="panel-h">
+      <span>作业列表</span>
+      <span class="spacer"></span>
+      <label class="meta" style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none">
+        <input type="checkbox" id="only-submittable" checked> 只看现在能提交的
+      </label>
+      <span id="tablehint" class="meta"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:200px">课程</th>
+          <th>作业标题</th>
+          <th style="width:158px">截止时间</th>
+          <th style="width:134px">剩余</th>
+          <th style="width:92px">状态</th>
+          <th style="width:104px"></th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr><td colspan="6" class="empty">尚未扫描 —— 点右上角「立即扫描」</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <aside class="panel">
+    <div class="panel-h"><span>提醒记录</span></div>
+    <div class="feed" id="feed"><div class="empty">暂无记录</div></div>
+  </aside>
+</div>
+{% endblock %}

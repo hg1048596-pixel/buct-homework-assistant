@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% set page = 'settings' %}
+{% block title %}设置 · 北化作业助手{% endblock %}
+{% block body %}
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-h"><span>系统通知</span><span class="spacer"></span>
+    <span class="meta" id="nt-state"></span></div>
+  <div class="pad">
+
+    <label class="f">通知渠道</label>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+        <input type="checkbox" id="nt-desktop"> Windows 桌面通知</label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+        <input type="checkbox" id="nt-email"> 邮件</label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+        <input type="checkbox" id="nt-wechat"> 微信推送</label>
+    </div>
+    <div class="hint">邮件与微信需要先在 <span class="mono">config.yaml</span> 里填好授权码 / SendKey。</div>
+
+    <label class="f">触发规则</label>
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+      <input type="checkbox" id="nt-instant"> 作业一进入 24 小时窗口就立刻弹通知
+    </label>
+    <div class="hint">每份作业只弹一次。关掉后仍会在 6 小时 / 1 小时这两个更紧的档位提醒。</div>
+
+    <label class="f" style="margin-top:16px">每日摘要</label>
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+      <input type="checkbox" id="nt-digest"> 每天定时弹一次「所有未提交作业 + 剩余时间」
+    </label>
+    <div style="display:grid;grid-template-columns:150px 1fr 1fr;gap:14px;margin-top:10px">
+      <div>
+        <label class="f">时间</label>
+        <input type="time" id="nt-digest-time" value="12:30">
+      </div>
+      <div>
+        <label class="f">范围</label>
+        <select id="nt-digest-scope">
+          <option value="all">所有未提交</option>
+          <option value="submittable">只看还能提交的</option>
+        </select>
+      </div>
+      <div>
+        <label class="f">逾期项</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding-top:8px">
+          <input type="checkbox" id="nt-digest-overdue"> 摘要里包含已逾期的
+        </label>
+      </div>
+    </div>
+    <div class="hint">
+      到点后的第一次运行就会补发，不会因为定时任务没踩准那一分钟而漏掉；每天只发一次。
+      <span id="nt-last"></span>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="primary" id="nt-save">保存</button>
+      <button id="nt-test">测试一条通知</button>
+      <button id="nt-test-digest">测试每日摘要</button>
+      <span id="nt-out"></span>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-h"><span>班级标识（《大学物理实验》等课程）</span><span class="spacer"></span>
+    <span class="meta" id="cf-state"></span></div>
+  <div class="pad">
+    <div class="hint">
+      这类课程的作业标题形如 <span class="mono">国机2503-Thu1800-7 Thermal Conductivity</span>，
+      第一个 <span class="mono">-</span> 之前那一段就是班级标识。
+      <b>填上你的班级后，不属于你的班（其他班的实验时段）就不再显示、也不会提醒。</b>
+      留空则不过滤。
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
+      <div>
+        <label class="f">你的班级（从你的实际数据里选）</label>
+        <select id="cf-select">
+          <option value="">（正在读取…）</option>
+        </select>
+        <div class="hint" id="cf-hint"></div>
+      </div>
+      <div>
+        <label class="f">或手动输入班级标识</label>
+        <input type="text" id="cf-class" placeholder="例如：国机2503" spellcheck="false">
+        <div class="hint">只填前几位也可以（按前缀匹配）。</div>
+      </div>
+    </div>
+    <label class="f">适用的课程（逗号分隔，按名称包含匹配）</label>
+    <input type="text" id="cf-courses" placeholder="大学物理实验" spellcheck="false">
+    <label class="f" style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="cf-enabled"> 启用班级过滤
+    </label>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button class="primary" id="cf-save">保存</button>
+      <button id="cf-check">试算影响</button>
+      <span id="cf-out" style="margin-left:6px"></span>
+    </div>
+    <div id="cf-samples" class="hint"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-h"><span>config/config.yaml</span><span class="spacer"></span>
+    <span class="meta">保存后需重启控制台生效</span>
+    <button class="primary" id="btn-save">保存</button>
+  </div>
+  <div class="pad">
+    <textarea id="cfgyaml" rows="24" spellcheck="false">{{ cfg_yaml }}</textarea>
+    <div id="save-out" style="margin-top:8px"></div>
+    <div class="hint">
+      凭据（学号密码）不在这里，用 <span class="mono">scripts\set_credentials.bat</span> 录入，存放在
+      <span class="mono">%LOCALAPPDATA%\buct-assistant\</span> 并由 DPAPI 加密。<br>
+      邮件渠道用的是 <b>SMTP 授权码</b>，不是邮箱登录密码。
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+const nout = document.getElementById('nt-out');
+
+async function loadNotify(){
+  const r = await fetch('/api/settings/notify');
+  const c = await r.json();
+  document.getElementById('nt-desktop').checked = !!c.desktop;
+  document.getElementById('nt-email').checked = !!c.email;
+  document.getElementById('nt-wechat').checked = !!c.wechat;
+  document.getElementById('nt-instant').checked = !!c.instant_24h;
+  document.getElementById('nt-digest').checked = !!c.digest_enabled;
+  document.getElementById('nt-digest-time').value = c.digest_time || '12:30';
+  document.getElementById('nt-digest-scope').value = c.digest_scope || 'all';
+  document.getElementById('nt-digest-overdue').checked = !!c.digest_include_overdue;
+  document.getElementById('nt-last').textContent = c.last_digest_date
+    ? ('上次摘要：' + c.last_digest_date) : '今天还没发过摘要。';
+  const on = [];
+  if (c.desktop) on.push('桌面');
+  if (c.email) on.push('邮件');
+  if (c.wechat) on.push('微信');
+  document.getElementById('nt-state').textContent =
+    (on.length ? '渠道：' + on.join('/') : '未启用任何渠道') +
+    (c.digest_enabled ? ' · 摘要 ' + c.digest_time : ' · 摘要已关');
+}
+
+document.getElementById('nt-save').onclick = async () => {
+  const r = await fetch('/api/settings/notify', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({csrf: window.CSRF,
+      desktop: document.getElementById('nt-desktop').checked,
+      email: document.getElementById('nt-email').checked,
+      wechat: document.getElementById('nt-wechat').checked,
+      instant_24h: document.getElementById('nt-instant').checked,
+      digest_enabled: document.getElementById('nt-digest').checked,
+      digest_time: document.getElementById('nt-digest-time').value || '12:30',
+      digest_scope: document.getElementById('nt-digest-scope').value,
+      digest_include_overdue: document.getElementById('nt-digest-overdue').checked})});
+  const j = await r.json();
+  nout.className = j.ok ? 'ok' : 'err';
+  nout.textContent = j.ok ? ('✓ ' + j.note) : ('✗ ' + j.err);
+  if (j.ok) loadNotify();
+};
+
+async function testNotify(kind){
+  nout.className = ''; nout.textContent = '正在发送…';
+  const r = await fetch('/api/notify/test', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({csrf: window.CSRF, kind: kind})});
+  const j = await r.json();
+  nout.className = j.ok ? 'ok' : 'err';
+  nout.textContent = j.ok ? ('✓ 已发送：' + JSON.stringify(j.detail)) : ('✗ ' + j.err);
+}
+document.getElementById('nt-test').onclick = () => testNotify('');
+document.getElementById('nt-test-digest').onclick = () => testNotify('digest');
+
+loadNotify();
+
+const out = document.getElementById('cf-out');
+
+async function loadClass(){
+  const r = await fetch('/api/settings/class');
+  const c = await r.json();
+  document.getElementById('cf-class').value = c.my_class || '';
+  document.getElementById('cf-courses').value = (c.courses || []).join(', ');
+  document.getElementById('cf-enabled').checked = !!c.enabled;
+  document.getElementById('cf-state').textContent =
+    (c.enabled && c.my_class) ? ('当前生效：只显示 ' + c.my_class) :
+    (c.enabled ? '已启用但未填班级（等于不过滤）' : '未启用');
+  await loadOptions(c.my_class || '');
+}
+
+async function loadOptions(current){
+  const r = await fetch('/api/class/options');
+  const j = await r.json();
+  const sel = document.getElementById('cf-select');
+  if (!j.options.length) { sel.innerHTML = '<option value="">（没识别到班级标识）</option>'; return; }
+  sel.innerHTML = j.options.map(o =>
+    '<option value="' + o.code + '"' + (o.code === current ? ' selected' : '') + '>' +
+    o.code + ' —— ' + o.count + ' 条，最晚 ' + o.latest_ddl_display + '</option>').join('');
+  document.getElementById('cf-hint').textContent = j.hint;
+}
+
+document.getElementById('cf-select').onchange = (e) => {
+  document.getElementById('cf-class').value = e.target.value;
+};
+
+document.getElementById('cf-save').onclick = async () => {
+  const r = await fetch('/api/settings/class', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({csrf: window.CSRF,
+      my_class: document.getElementById('cf-class').value,
+      courses: document.getElementById('cf-courses').value,
+      enabled: document.getElementById('cf-enabled').checked})});
+  const j = await r.json();
+  out.className = j.ok ? 'ok' : 'err';
+  out.textContent = j.ok ? ('✓ ' + j.note + '（回到作业总览刷新即可看到）') : ('✗ ' + j.err);
+  if (j.ok) loadClass();
+};
+
+document.getElementById('cf-check').onclick = async () => {
+  const r = await fetch('/api/class/preview');
+  const j = await r.json();
+  out.className = '';
+  out.textContent = '保留 ' + j.kept + ' 条，滤掉 ' + j.dropped + ' 条';
+  const box = document.getElementById('cf-samples');
+  box.innerHTML = j.dropped_samples.length
+    ? ('会被滤掉的例子：' + j.dropped_samples.map(s =>
+        '<span class="mono">' + s.code + '</span>').join('、'))
+    : '';
+};
+
+document.getElementById('btn-save').onclick = async () => {
+  const o = document.getElementById('save-out');
+  const r = await fetch('/api/settings', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({csrf: window.CSRF, yaml: document.getElementById('cfgyaml').value})
+  });
+  const j = await r.json();
+  o.className = j.ok ? 'ok' : 'err';
+  o.textContent = j.ok ? ('✓ ' + (j.note || '已保存')) : ('✗ ' + j.err);
+};
+
+loadClass();
+</script>
+{% endblock %}

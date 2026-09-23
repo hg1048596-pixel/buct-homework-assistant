@@ -1,0 +1,23 @@
+# 凭据与私密配置
+config/config.yaml
+config/*.local.yaml
+*.dat
+
+# 运行数据（含作业内容、审计日志）
+data/
+logs/
+
+# 校准用的页面快照（可能含个人信息）
+calibration/raw/
+calibration/errors/
+
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# UI 截图（含真实课程与作业数据，不入库）
+calibration/ui-*.png
+
+

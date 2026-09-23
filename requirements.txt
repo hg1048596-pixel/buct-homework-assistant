@@ -1,0 +1,13 @@
+requests>=2.32
+lxml>=5.0
+gmssl==3.2.2
+pycryptodomex>=3.20
+winotify==1.1.0
+APScheduler>=3.10,<4
+fastapi>=0.115
+uvicorn>=0.30
+jinja2>=3.1
+python-multipart>=0.0.9
+pyyaml>=6.0
+pydantic>=2.7
+tzdata>=2024.1

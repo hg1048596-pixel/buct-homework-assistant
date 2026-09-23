@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% set page = 'homework' %}
+{% block title %}{{ rec.title or '作业详情' }} · 北化作业助手{% endblock %}
+{% block body %}
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-h"><a href="/dashboard">← 返回总览</a><span class="spacer"></span>
+    <span class="meta">提交前会先生成逐字预演，再由你输入标题前 4 字确认</span></div>
+</div>
+
+<div class="detail">
+  <div class="panel">
+    <div class="panel-h"><span>作业要求</span></div>
+    <div class="kv">
+      <div class="k">课程</div><div class="v">{{ rec.course_name or '—' }}</div>
+      <div class="k">标题</div><div class="v">{{ rec.title or '—' }}</div>
+      <div class="k">截止时间</div><div class="v">{{ rec.ddl_raw or '—' }}</div>
+      <div class="k">评分方式</div><div class="v">{{ rec.scoring_method or '—' }}</div>
+      <div class="k">状态</div><div class="v">
+        {% if rec.unsubmitted %}<span class="badge">未提交</span>{% else %}<span class="badge ok">已提交</span>{% endif %}
+        {% if not rec.can_submit %}<span class="badge low">不可提交</span>{% endif %}
+        {% if rec.confidence and rec.confidence != 'high' %}<span class="badge warn">状态待确认</span>{% endif %}
+      </div>
+    </div>
+    <div class="content">{% if rec.content_text %}{{ rec.content_text }}{% else %}（本地没有保存要求正文，点总览页「立即扫描」后会自动补上）{% endif %}</div>
+  </div>
+
+  <div class="panel sticky">
+    <div class="panel-h"><span>提交</span></div>
+    <div class="pad">
+      {% if not rec.can_submit %}
+      <div class="warnbox">平台上这个作业当前没有提交入口（可能已截止，或本来就不允许提交）。</div>
+      {% endif %}
+      <label class="f">文本内容（可选）</label>
+      <textarea rows="5" id="draft-text" placeholder="要写在答案框里的内容…"></textarea>
+
+      <label class="f">附件（可选，实验报告扫描件等）</label>
+      <input type="file" id="draft-file">
+
+      <label class="f">命名模板（可选，按老师要求自动重命名）</label>
+      <input type="text" id="name-template" placeholder="例如：班级-姓名-实验项目名称" spellcheck="false">
+      <div class="hint">扩展名沿用原文件。留空则不改名。</div>
+
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="primary" id="btn-preview">生成预演</button>
+        <button id="btn-clear">清空</button>
+      </div>
+      <div id="out" style="margin-top:10px"></div>
+      <div class="hint">「生成预演」只做 dry-run，不会提交任何东西。</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+const CID = {{ course_id|tojson }}, HWTID = {{ hwtid|tojson }};
+document.getElementById('btn-clear').onclick = () => {
+  document.getElementById('draft-text').value = '';
+  document.getElementById('draft-file').value = '';
+};
+document.getElementById('btn-preview').onclick = async () => {
+  const out = document.getElementById('out');
+  const fd = new FormData();
+  fd.append('csrf', window.CSRF);
+  fd.append('course_id', CID);
+  fd.append('hwtid', HWTID);
+  fd.append('text', document.getElementById('draft-text').value);
+  fd.append('name_template', document.getElementById('name-template').value);
+  const f = document.getElementById('draft-file').files[0];
+  if (f) fd.append('file', f);
+  out.className = ''; out.textContent = '正在生成预演…';
+  const r = await fetch('/api/draft', {method:'POST', body: fd});
+  const j = await r.json();
+  if (j.ok) { location.href = '/submit/preview/' + encodeURIComponent(j.token); }
+  else { out.className = 'err'; out.textContent = '✗ ' + (j.err || '失败'); }
+};
+</script>
+{% endblock %}

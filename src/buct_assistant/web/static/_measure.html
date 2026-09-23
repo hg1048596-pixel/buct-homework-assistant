@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>measure</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar"><div class="topbar-inner">
+    <span class="brand"><span class="mark"></span><span class="name">北化<i>在线</i>作业助手</span>
+      <span class="sub">BUCT Course Agent</span></span>
+    <nav class="nav"><a class="on">作业总览</a><a>设置</a><a>日志</a></nav>
+    <span class="spacer"></span>
+    <span class="meta">上次扫描 09-23 19:44</span>
+    <span class="sess"><span class="dot on"></span><span>会话 09-23 20:50</span></span>
+    <button>重登</button><button class="primary">立即扫描</button>
+  </div></header>
+  <main class="wrap">
+    <div class="readouts">
+      <div class="readout hot"><div class="k">未提交</div><div class="v">17</div></div>
+      <div class="readout"><div class="k">24 小时内</div><div class="v">0</div></div>
+      <div class="readout"><div class="k">6 小时内</div><div class="v">0</div></div>
+      <div class="readout bad"><div class="k">已逾期</div><div class="v">4</div></div>
+      <div class="readout good"><div class="k">已提交</div><div class="v">12</div></div>
+      <div class="readout"><div class="k">在册记录</div><div class="v">29</div></div>
+    </div>
+    <div class="dist"></div>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-h"><span>作业列表</span><span class="spacer"></span>
+          <label class="meta"><input type="checkbox" checked> 只看现在能提交的</label>
+          <span class="meta">已过滤：13 条</span></div>
+        <table>
+          <thead><tr><th style="width:200px">课程</th><th>作业标题</th>
+            <th style="width:158px">截止时间</th><th style="width:134px">剩余</th>
+            <th style="width:92px">状态</th><th style="width:104px"></th></tr></thead>
+          <tbody id="rows">
+            <tr class="lv-hot" data-key="a"><td class="course">线性代数A</td>
+              <td class="title"><a href="#">第1次作业</a></td>
+              <td class="ddl">2026年9月26日 23:59:00</td><td class="left">剩 75.7h</td>
+              <td><span class="badge">未提交</span></td>
+              <td class="act"><a class="btn" href="#">提交</a></td></tr>
+            <tr class="lv-ok" data-key="b"><td class="course">概率论与数理统计</td>
+              <td class="title"><a href="#">第三周作业9月14日</a></td>
+              <td class="ddl">2026年9月27日 23:59:00</td><td class="left">剩 99.7h</td>
+              <td><span class="badge">未提交</span></td>
+              <td class="act"><a class="btn" href="#">提交</a></td></tr>
+            <tr class="lv-bad" data-key="c"><td class="course">大学物理实验(II)</td>
+              <td class="title"><a href="#">《传感器》实验报告</a></td>
+              <td class="ddl">2026年9月20日 23:59:00</td><td class="left over">逾期 2.8天</td>
+              <td><span class="badge bad">已逾期</span></td>
+              <td class="act"></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <aside class="panel sticky"><div class="panel-h"><span>提醒记录</span></div>
+        <div class="feed"><div class="feed-item"><div class="t">09-23 19:44</div>
+          <div class="h">发现 158 个新作业</div><div class="b">大学物理实验(II)｜《单缝衍射》实验报告</div>
+        </div></div></aside>
+    </div>
+    <div class="panel"><div class="panel-h"><span>提交</span></div><div class="pad">
+      <label class="f">文本内容</label><textarea rows="2"></textarea>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="primary">生成预演</button><button class="danger">确认提交</button><button>取消</button>
+      </div>
+    </div></div>
+  </main>
+</div>
+<script>
+function rect(el) {
+  if (!el) return null;
+  var r = el.getBoundingClientRect();
+  return { top: +r.top.toFixed(1), bottom: +r.bottom.toFixed(1), h: +r.height.toFixed(1),
+           cy: +((r.top + r.bottom) / 2).toFixed(1) };
+}
+var out = { rows: [], radii: {}, wrap: [] };
+
+/* 1) 行几何 + 按钮居中 + 折行 */
+Array.prototype.forEach.call(document.querySelectorAll('#rows tr[data-key]'), function (row, i) {
+  var cell = row.querySelector('td.act'), btn = row.querySelector('td.act a.btn');
+  var c = { row: i + 1, rowH: rect(row).h };
+  if (btn) {
+    var range = document.createRange();
+    range.selectNodeContents(btn);
+    c.btnBoxes = range.getClientRects().length;
+    c.btnH = rect(btn).h;
+    c.offset = +(rect(btn).cy - rect(cell).cy).toFixed(1);
+  }
+  out.rows.push(c);
+});
+
+/* 2) 所有"框"的圆角值 */
+var targets = {
+  '顶栏玻璃条 .topbar-inner': '.topbar-inner',
+  '导航容器 .nav': '.nav',
+  '导航项 .nav a': '.nav a',
+  '内容区按钮 button': '.wrap button',
+  '表格操作按钮 .btn': '#rows a.btn',
+  '读数区 .readouts': '.readouts',
+  '读数单元 .readout': '.readout',
+  '比例条 .dist': '.dist',
+  '卡片 .panel': '.panel',
+  '卡头 .panel-h': '.panel-h',
+  '浮层侧栏 .sticky': '.sticky',
+  '输入框 textarea': 'textarea',
+  '胶囊标签 .badge': '.badge',
+  '圆角行高亮 td': '#rows td:first-child'
+};
+Object.keys(targets).forEach(function (name) {
+  var el = document.querySelector(targets[name]);
+  if (!el) { out.radii[name] = '未找到'; return; }
+  var cs = getComputedStyle(el);
+  out.radii[name] = [cs.borderTopLeftRadius, cs.borderTopRightRadius,
+                     cs.borderBottomRightRadius, cs.borderBottomLeftRadius].join(' ');
+});
+
+/* 3) 折行全检 */
+Array.prototype.forEach.call(document.querySelectorAll('button, .btn'), function (b) {
+  var r = document.createRange(); r.selectNodeContents(b);
+  out.wrap.push({ text: b.textContent.trim().slice(0, 8), boxes: r.getClientRects().length });
+});
+
+out.theadTop = getComputedStyle(document.querySelector('thead th')).top;
+document.body.insertAdjacentHTML('beforeend', '<pre id="RESULT_JSON">RESULT ' + JSON.stringify(out) + '</pre>');
+</script>
+</body>
+</html>

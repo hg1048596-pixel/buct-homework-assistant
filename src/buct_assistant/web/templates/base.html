@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}北化作业助手{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <span class="name">北化<i>在线</i>作业助手</span>
+        <span class="sub">BUCT Course Agent</span>
+      </span>
+
+      <nav class="nav">
+        <a href="/dashboard" class="{% if page=='dashboard' %}on{% endif %}">作业总览</a>
+        <a href="/settings" class="{% if page=='settings' %}on{% endif %}">设置</a>
+        <a href="/logs" class="{% if page=='logs' %}on{% endif %}">日志</a>
+        <a href="/api/docs" target="_blank">接口</a>
+      </nav>
+
+      <span class="spacer"></span>
+
+      <span class="meta" id="scanmeta">尚未扫描</span>
+      <span class="sess">
+        <span class="dot" id="sessdot"></span><span id="sesstext">会话未知</span>
+      </span>
+      <button id="btn-relogin">重登</button>
+      <button class="primary" id="btn-scan">立即扫描</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    {% block body %}{% endblock %}
+  </main>
+</div>
+
+<script>window.CSRF = "{{ csrf }}";</script>
+<script src="/static/app.js"></script>
+{% block script %}{% endblock %}
+</body>
+</html>
