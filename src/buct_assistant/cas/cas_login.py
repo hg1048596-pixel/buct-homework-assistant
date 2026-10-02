@@ -21,7 +21,9 @@ from ..crypto.sm2_c1c3c2 import encrypt_password
 from .errors import (CasAuthFailed, CasBlocked, CasError, CasProtocolChanged,
                      FLOWKEY_RETRY_CODES, HARD_BLOCK_CODES, NO_RETRY_CODES)
 SSO_ENTRY = "https://course.buct.edu.cn/meol/homepage/common/sso_login.jsp"
-PORTAL = "https://portal.buct.edu.cn"
+# 2026-10 起统一认证迁至实验端点主机（portal.buct.edu.cn 已从公共 DNS 下线）
+AUTH_BASE = "https://experimental-auth-endpoint.buct.edu.cn"
+PORTAL = AUTH_BASE
 RULES_URL = f"{PORTAL}/cas/api/reset/rules"
 LOGIN_URL = f"{PORTAL}/cas/username-password/login"
 PERSONAL_URL = "https://course.buct.edu.cn/meol/personal.do"
@@ -48,11 +50,12 @@ def _flow_key_from_cookie_info(raw_value: str) -> str:
     return fk
 
 
-def _extract_flow_key(session: requests.Session) -> str:
+def _extract_flow_key(session: requests.Session):
+    """新认证端点不再下发 flowKey（index.js 已注释 init-login），取不到就返回 None。"""
     for c in session.cookies:
         if c.name == "COOKIE_INFO":
             return _flow_key_from_cookie_info(c.value)
-    raise CasProtocolChanged("C02", "未取到 COOKIE_INFO cookie（未落到 portal 登录页？）")
+    return None
 
 
 def _get_public_key(session: requests.Session) -> str:
@@ -72,14 +75,18 @@ def _login_once(session: requests.Session, username: str, password: str, log) ->
     # 步骤 1：走到 portal 登录页，拿 flowKey
     session.get(SSO_ENTRY, timeout=30)
     flow_key = _extract_flow_key(session)
-    log(f"flowKey: {flow_key[:12]}...")
+    if flow_key:
+        log(f"flowKey: {flow_key[:12]}...")
+    else:
+        log("flowKey: （新认证端点不下发，跳过）")
 
     # 步骤 2：公钥
     pubkey = _get_public_key(session)
 
     # 步骤 3：登录
-    payload = {"username": username, "password": encrypt_password(password, pubkey),
-               "flowKey": flow_key}
+    payload = {"username": username, "password": encrypt_password(password, pubkey)}
+    if flow_key:
+        payload["flowKey"] = flow_key
     r = session.post(LOGIN_URL, json=payload, timeout=30,
                      headers={"Referer": f"{PORTAL}/cas/login"})
     try:
@@ -113,7 +120,8 @@ def _verify_meol(session: requests.Session, log) -> str:
 
     r = session.get(PERSONAL_URL, timeout=30)
     text = decode_page(r.content, r.headers.get("Content-Type", ""))
-    if "/cas/login" in r.url or "loginCheck" in r.url:
+    if ("/cas/login" in r.url or "loginCheck" in r.url
+            or "experimental-auth-endpoint" in r.url):
         raise CasError("V0", f"登录态未建立，被踢回登录页: {r.url}")
     if "IPT_LOGINPASSWORD" in text or 'id="login"' in text:
         raise CasError("V0b", "personal.do 返回了登录表单，会话未建立")
@@ -137,21 +145,19 @@ def login(username: str, password: str, session: requests.Session | None = None,
     s = session or requests.Session()
     s.headers["User-Agent"] = UA
 
-    # 2026-10 起学校把登录迁回 THEOL 本站表单（portal.buct.edu.cn 已从 DNS 下线），
-    # 老版直连是当前可用路径；若它被重定向回统一认证再走 portal 流程
-    try:
-        return login_legacy(username, password, s, log)
-    except CasProtocolChanged:
-        log("本站表单被重定向到统一认证，回退 portal CAS 流程")
-
+    # 主路径：新统一认证端点（SM2 + CAS API）；协议变化时回退 legacy 直连
+    service = None
     try:
         service = _login_once(s, username, password, log)
-    except CasError as e:
-        if e.code in FLOWKEY_RETRY_CODES:
-            log(f"flowKey 失效({e.code})，重取后重试一次")
-            service = _login_once(s, username, password, log)
-        else:
-            raise
+    except CasProtocolChanged as e:
+        log(f"新认证端点流程异常({e.code})，回退 legacy 直连")
+        try:
+            return login_legacy(username, password, s, log)
+        except CasProtocolChanged:
+            log("legacy 表单也被重定向到统一认证，回退 portal CAS 流程")
+        service = _login_once(s, username, password, log)
+    except (CasBlocked, CasAuthFailed):
+        raise
 
     # 步骤 5：跟随带 ticket 的回跳，建立 MEOL 会话
     if not service.startswith("http"):
@@ -187,7 +193,8 @@ def session_alive(session: requests.Session) -> bool:
 
     try:
         r = session.get(PERSONAL_URL, timeout=20, allow_redirects=True)
-        if "/cas/login" in r.url or "loginCheck" in r.url:
+        if ("/cas/login" in r.url or "loginCheck" in r.url
+            or "experimental-auth-endpoint" in r.url):
             return False
         text = decode_page(r.content, r.headers.get("Content-Type", ""))
         if "IPT_LOGINPASSWORD" in text:
