@@ -137,6 +137,13 @@ def login(username: str, password: str, session: requests.Session | None = None,
     s = session or requests.Session()
     s.headers["User-Agent"] = UA
 
+    # 2026-10 起学校把登录迁回 THEOL 本站表单（portal.buct.edu.cn 已从 DNS 下线），
+    # 老版直连是当前可用路径；若它被重定向回统一认证再走 portal 流程
+    try:
+        return login_legacy(username, password, s, log)
+    except CasProtocolChanged:
+        log("本站表单被重定向到统一认证，回退 portal CAS 流程")
+
     try:
         service = _login_once(s, username, password, log)
     except CasError as e:

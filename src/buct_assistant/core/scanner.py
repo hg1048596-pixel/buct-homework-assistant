@@ -95,7 +95,9 @@ def scan(ps: PlatformSession, log, err_dir: str, columns_path: str,
 
     if not courses_raw:
         # 解析到 0 门课绝不等于没有课：页面多半是登录页（会话失效）或结构变化
-        if "IPT_LOGINPASSWORD" in text or "统一身份认证" in text or "/cas/login" in text:
+        if ("IPT_LOGINPASSWORD" in text or "统一身份认证" in text
+                or "/cas/login" in text or "Permission Denied" in text
+                or "/meol/error.jsp" in text):
             res.session_expired = True
             res.errors.append("课程列表返回登录页——会话已失效，将自动重新登录后重试")
             return res
